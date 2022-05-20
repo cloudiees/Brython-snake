@@ -1,0 +1,366 @@
+#Note that all graphics were drawn by me
+import random
+import math
+from browser import timer
+WORLD_SIZE = 600
+set_size(WORLD_SIZE,WORLD_SIZE + 50)
+BODY_SIZE = 50
+INITIAL_POSITION_X = WORLD_SIZE / 2 - BODY_SIZE * 4
+INITIAL_POSITION_Y = WORLD_SIZE / 2
+possibleLocations = []
+highscore = 0
+paused = False
+gameStart = False
+firstGame = True
+newHS = False
+diff = 150
+rows = int(WORLD_SIZE / BODY_SIZE)
+#Possible locations for the fruits, increased probability to put the fruit to be in the middle rather than the edge
+for i in range(rows):
+    x = i * BODY_SIZE
+    for i in range(rows):
+        y = i * BODY_SIZE
+        coords = (x, y)
+        possibleLocations.append(coords)
+for i in range(10):
+    for i in range(3, 9):
+        x = i * BODY_SIZE
+        for i in range(3, 9):
+            y = i*BODY_SIZE
+            possibleLocations.append((x, y))
+#Draws the fruit by picking a random square in possibleLocations, then checks if the location is valid by seeing where the body/head is
+def drawFruit():
+    global location, fruit
+    fruit = Image("https://i.ibb.co/zm2Vr1j/fruit.png")
+    choiceValid = False
+    while choiceValid == False:
+        location = random.choice(possibleLocations)
+        if(location in bodyLoc):
+            choiceValid = False
+        else:
+            choiceValid = True
+    fruit.set_size(BODY_SIZE - 10, BODY_SIZE - 10)
+    fruit.set_position(location[0] + 5, location[1] + 5)
+    fruit.set_color(Color.red)
+    add(fruit)
+#Detects when the head square matches a fruit square, then draws a new fruit and new body
+def collection():
+    global counter, counterTxt
+    currentLocation = bodyLoc[0]
+    if(currentLocation == location):
+        counter += 1
+        remove(counterTxt)
+        counterTxt = Text(counter)
+        counterTxt.set_position(125, 640)
+        counterTxt.set_color(Color.grey)
+        counterTxt.set_font("30pt Segoe Print")
+        add(counterTxt)
+        remove(fruit)
+        drawBody()
+        drawFruit()
+#Draws a new body behind the snake
+def drawBody():
+    global bodyList, bodyLoc
+    prevBody = bodyList[len(bodyList) - 1]
+    prevBody2 = bodyList[len(bodyList) - 2]
+    prevX1 = prevBody.get_x()
+    prevX2 = prevBody2.get_x()
+    prevY1 = prevBody.get_y()
+    prevY2 = prevBody2.get_y()
+    body = Rectangle(BODY_SIZE,BODY_SIZE)
+    if(prevX1 - prevX2 == 0):
+        if(prevY1 - prevY2 > 0):
+            body.set_position(prevX1, prevY1 + BODY_SIZE)
+        else:
+            body.set_position(prevX1, prevY1 - BODY_SIZE)
+    else:
+        if(prevX1 - prevX2 > 0):
+            body.set_position(prevX1 + BODY_SIZE, prevY1)
+        else:
+            body.set_position(prevX1 - BODY_SIZE, prevY1)
+    body.set_color(Color.green)
+    add(body)
+    bodyLoc.append((body.get_x(), body.get_y()))
+    bodyList.append(body)
+#Takes in arrow keys/WASD to turn the snake
+def rotate(event):
+    global direction, keyPress
+    if (event.key == "ArrowLeft" or event.key == "a")and direction != "east" and direction != "west":
+        keyPress = "left"
+    elif (event.key == "ArrowRight" or event.key == "d") and direction != "west" and direction != "east":
+        keyPress = "right"
+    elif (event.key == "ArrowUp" or event.key == "w") and direction != "south" and direction != "north":
+        keyPress = "up"
+    elif (event.key == "ArrowDown" or event.key == "s") and direction != "north" and direction != "south":
+        keyPress = "down"
+#Constantly moves the snake based on the direction it was facing
+def move():
+    global bodyList, bodyLoc, direction, keyPress
+    if(keyPress == "left"):
+        direction = "west"
+    elif(keyPress == "right"):
+        direction = "east"
+    elif(keyPress == "up"):
+        direction = "north"
+    elif(keyPress == "down"):
+        direction = "south"
+    if(direction == "west"):
+        bodyList[0].move(-(BODY_SIZE), 0)
+        bodyList[0].set_rotation(math.radians(180))
+    elif(direction == "east"):
+        bodyList[0].move(BODY_SIZE, 0)
+        bodyList[0].set_rotation(math.radians(0))
+    elif(direction == "north"):
+        bodyList[0].move(0, -(BODY_SIZE))
+        bodyList[0].set_rotation(math.radians(270))
+    elif(direction == "south"):
+        bodyList[0].move(0, BODY_SIZE)
+        bodyList[0].set_rotation(math.radians(90))
+    for i in range(1, len(bodyList)):
+        bodyList[i].set_position(bodyLoc[i - 1][0], bodyLoc[i - 1][1])
+    for i in range(len(bodyList)):
+        bodyLoc[i] = (bodyList[i].get_x(), bodyList[i].get_y())
+#Checks if the snake is alive/checks if the snake is dead (goes out of bounds or hits self)
+def alive():
+    global isAlive
+    headPos = bodyLoc[0]
+    if(headPos[0] >= WORLD_SIZE or headPos[1] >= WORLD_SIZE or headPos[0] < 0 or headPos[1] < 0):
+        isAlive = False
+    for i in range(1, len(bodyLoc)):
+        if(headPos == bodyLoc[i]):
+            isAlive = False
+    if(isAlive == False):
+        dead()
+#Ends all timers and removes everything, shows play again button and detects if there is a new highscore
+def dead():
+    global bodyList, bodyLoc, counter, retryRect, fruit, scoreTxt, counterTxt, gameStart, firstGame, death, finalScore, HS, newHS, highscore, backButton2
+    timer.clear_interval(timerA)
+    timer.clear_interval(timerB)
+    timer.clear_interval(timerC)
+    for i in bodyList:
+        remove(i)
+    remove(line)
+    if counter > highscore:
+        newHS = True
+        highscore = counter
+        HS = Text("New Highscore!")
+        HS.set_position(BODY_SIZE * 1.5, BODY_SIZE * 11.5)
+        HS.set_font("45pt Segoe Print")
+        add(HS)
+    backButton2 = Image("https://i.ibb.co/fS0SLsy/backbutton.png")
+    backButton2.set_size(75, 75)
+    backButton2.set_position(25, 25)
+    add(backButton2)
+    remove(HSTxt)
+    remove(pauseButton)
+    remove(highscoreTxt)
+    bodyList.clear()
+    bodyLoc.clear()
+    remove(fruit)
+    remove(scoreTxt)
+    remove(counterTxt)
+    gameStart = False
+    retryRect = Image("https://i.ibb.co/qySzFM9/playagainv2.png")
+    retryRect.set_size(400,200)
+    retryRect.set_position(100, 200)
+    add(retryRect)
+    finalScore = Text("Score: " + str(counter))
+    finalScore.set_position(BODY_SIZE * 2.25, BODY_SIZE * 10)
+    finalScore.set_font("62pt Segoe Print")
+    add(finalScore)
+    death = Text("You Died")
+    death.set_position(BODY_SIZE * 2.5, BODY_SIZE * 3)
+    death.set_font("62pt Segoe Print")
+    add(death)
+    firstGame = False
+#Timers that repeat functions on an interval based off the difficulty
+def timers():
+    global timerA, timerB, timerC
+    timerA = timer.set_interval(move, diff)
+    timerB = timer.set_interval(collection,diff)
+    timerC = timer.set_interval(alive, diff)
+#Pauses the game
+def pause():
+    global playButton, restartButton, backButton
+    timer.clear_interval(timerA)
+    timer.clear_interval(timerB)
+    timer.clear_interval(timerC)
+    remove(pauseButton)
+    paused = True
+    playButton = Image("https://i.ibb.co/1dCR1m3/playbutton.png")
+    playButton.set_size(100, 100)
+    playButton.set_position(BODY_SIZE * 5, BODY_SIZE * 2)
+    add(playButton)
+    restartButton = Image("https://i.ibb.co/FgNzwvg/restartbutton.png")
+    restartButton.set_size(100, 100)
+    restartButton.set_position(BODY_SIZE * 5, BODY_SIZE * 5)
+    add(restartButton)
+    backButton = Image("https://i.ibb.co/fS0SLsy/backbutton.png")
+    backButton.set_size(100, 100)
+    backButton.set_position(BODY_SIZE * 5, BODY_SIZE * 8)
+    add(backButton)
+#Sets up the game
+def playGame():
+    global gameStart, startRect, head, headPosX, headPosY, body1, body2, bodyList, bodyLoc, scoreTxt, counterTxt, isAlive, counter, keyPress, direction, highscoreTxt, HSTxt, diffR1, diffR2, diff, h2p, pauseButton, paused, line
+    line = Line(0, 600, 600, 600)
+    line.set_color(Color.grey)
+    add(line)
+    gameStart = True
+    isAlive = True
+    pauseButton = Image("https://i.ibb.co/JB8CyTq/pausebutton.png")
+    pauseButton.set_size(45,45)
+    pauseButton.set_position(255, 603)
+    add(pauseButton)
+    highscoreTxt = Text("Highscore:")
+    highscoreTxt.set_position(300, 640)
+    highscoreTxt.set_font("30pt Segoe Print")
+    highscoreTxt.set_color(Color.grey)
+    add(highscoreTxt)
+    HSTxt = Text(highscore)
+    HSTxt.set_position(510, 640)
+    HSTxt.set_font("30pt Segoe Print")
+    HSTxt.set_color(Color.grey)
+    add(HSTxt)
+    direction = "east"
+    counter = 0
+    keyPress = "right"
+    scoreTxt = Text("Score:")
+    scoreTxt.set_position(0, 640)
+    scoreTxt.set_color(Color.grey)
+    scoreTxt.set_font("30pt Segoe Print")
+    add(scoreTxt)
+    counterTxt = Text(counter)
+    counterTxt.set_position(125, 640)
+    counterTxt.set_color(Color.grey)
+    counterTxt.set_font("30pt Segoe Print")
+    add(counterTxt)
+    head = Image("https://i.ibb.co/ZdtccMw/crippling-anxiety.png")
+    head.set_size(BODY_SIZE, BODY_SIZE)
+    head.set_position(INITIAL_POSITION_X, INITIAL_POSITION_Y)
+    head.set_color(Color.red)
+    add(head)
+    headPosX = head.get_x()
+    headPosY = head.get_y()
+    body1 = Rectangle(BODY_SIZE, BODY_SIZE)
+    body1.set_position(INITIAL_POSITION_X - BODY_SIZE, INITIAL_POSITION_Y)
+    body1.set_color(Color.green)
+    add(body1)
+    body2 = Rectangle(BODY_SIZE,BODY_SIZE)
+    body2.set_position(INITIAL_POSITION_X - BODY_SIZE * 2, INITIAL_POSITION_Y)
+    body2.set_color(Color.green)
+    add(body2)
+    bodyList = [head, body1, body2]
+    bodyLoc = []
+    for i in bodyList:
+        bodyLoc.append((i.get_x(), i.get_y()))
+    add_key_down_handler(rotate)
+    drawFruit()
+    timers()
+#Detects mouse clicks in certain areas 
+def startGame(x, y):
+    global gameStart, head, headPosX, headPosY, body1, body2, bodyList, bodyLoc, scoreTxt, counterTxt, isAlive, counter, keyPress, direction, highscoreTxt, HSTxt, diff, pauseButton, paused, line, firstGame
+    #Start Game/Play Again Button
+    if(x in range(100, 500) and y in range(200, 400) and gameStart == False):
+        if firstGame == True:
+            remove(startRect)
+            remove(diffR1)
+            remove(diffR2)
+            remove(h2p)
+        else:
+            remove(retryRect)
+            remove(backButton2)
+            remove(death)
+            remove(finalScore)
+            if newHS == True:
+                remove(HS)
+        playGame()
+    #Pause Button
+    elif((x in range(BODY_SIZE * 5, BODY_SIZE *6) and y in range(600, 650)) and (gameStart == True and paused == False)):
+        paused = True
+        pause()
+    #Set Difficulty to Normal
+    elif((x in range(50, 250) and y in range(450, 550)) and firstGame == True):
+        diff = 150
+        print("Difficulty set to Normal")
+    #Set Difficulty to Hard
+    elif((x in range(350, 550) and y in range(450, 550)) and firstGame == True):
+        diff = 100
+        print("Difficulty set to Hard")
+    #Play Button
+    elif((x in range (250, 350) and y in range(100, 200)) and paused == True):
+        paused = False
+        remove(restartButton)
+        remove(playButton)
+        remove(backButton)
+        pauseButton = Image("https://i.ibb.co/JB8CyTq/pausebutton.png")
+        pauseButton.set_size(45,45)
+        pauseButton.set_position(255, 603)
+        add(pauseButton)
+        timers()
+    #Restart Button
+    elif((x in range(250, 350) and y in range(250, 350)) and paused == True):
+        paused = False
+        remove(restartButton)
+        remove(playButton)
+        remove(backButton)
+        for i in bodyList:
+            remove(i)
+        bodyList.clear()
+        bodyLoc.clear()
+        remove(fruit)
+        remove(highscoreTxt)
+        remove(HSTxt)
+        remove(scoreTxt)
+        remove(counterTxt)
+        remove(line)
+        playGame()
+    #Back Button
+    elif((x in range(250, 350) and y in range(400, 500)) and paused == True):
+        paused = False
+        gameStart = False
+        remove(restartButton)
+        remove(playButton)
+        remove(backButton)
+        for i in bodyList:
+            remove(i)
+        bodyList.clear()
+        bodyLoc.clear()
+        remove(fruit)
+        remove(highscoreTxt)
+        remove(HSTxt)
+        remove(scoreTxt)
+        remove(counterTxt)
+        remove(line)
+        mainMenu()
+        firstGame = True
+    #Back button but for play again screen
+    elif((x in range(25,100) and y in range(25,100)) and isAlive == False):
+        remove(retryRect)
+        remove(death)
+        remove(backButton2)
+        remove(finalScore)
+        if newHS == True:
+            remove(HS)
+        mainMenu()
+        firstGame = True
+#Brings up start screen
+def mainMenu():
+    global h2p, diffR1, diffR2, startRect
+    h2p = Image("https://i.ibb.co/30MJ71F/h2p.png")
+    h2p.set_size(500, 150)
+    h2p.set_position(BODY_SIZE * 1, BODY_SIZE * .5)
+    add(h2p)
+    diffR1 = Image("https://i.ibb.co/VWr8rc9/diffnormalv2.png")
+    diffR1.set_size(BODY_SIZE*4, BODY_SIZE*2)
+    diffR1.set_position(BODY_SIZE, BODY_SIZE*9)
+    add(diffR1)
+    diffR2 = Image("https://i.ibb.co/ZYxY9yt/diffhardv2.png")
+    diffR2.set_size(BODY_SIZE * 4, BODY_SIZE * 2)
+    diffR2.set_position(BODY_SIZE * 7, BODY_SIZE * 9)
+    add(diffR2)
+    startRect = Image("https://i.ibb.co/KG5tn39/startv2.png")
+    startRect.set_size(400,200)
+    startRect.set_position(100, 200)
+    add(startRect)
+mainMenu()
+add_mouse_click_handler(startGame)
